@@ -1,0 +1,51 @@
+{
+  "name": "Jan-v1-4B vLLM Server",
+  "description": "Optimized vLLM server for Jan-v1-4B model",
+  "image": "vllm/vllm-openai:latest",
+  "docker_options": {
+    "runtime": "nvidia",
+    "ports": {
+      "8000/tcp": [{"HostPort": "8000"}]
+    },
+    "environment": {
+      "VLLM_MODEL": "janhq/Jan-v1-4B",
+      "MAX_MODEL_LEN": "2048",
+      "DTYPE": "auto",
+      "GPU_MEMORY_UTILIZATION": "0.9",
+      "HOST": "0.0.0.0",
+      "PORT": "8000",
+      "DOWNLOAD_DIR": "/workspace/models",
+      "HF_HOME": "/workspace/models",
+      "USE_ALL_GPUS": "false",
+      "VLLM_ARGS": "--max-model-len 2048 --dtype auto --gpu-memory-utilization 0.9 --download-dir /workspace/models --host 0.0.0.0 --port 8000"
+    },
+    "volumes": [
+      "/workspace/models:/workspace/models"
+    ]
+  },
+  "onstart_script": "#!/bin/bash\nset -e\n\n# Kill any existing vLLM processes\npkill -f 'vllm serve' || true\nsleep 2\n\necho '🚀 Starting Jan-v1-4B vLLM server...'\n\n# Create models directory\nmkdir -p /workspace/models\n\n# Start vLLM with Jan-v1-4B\nif command -v vllm &> /dev/null; then\n    # Use vllm CLI if available\n    vllm serve janhq/Jan-v1-4B \\\n        --max-model-len 2048 \\\n        --dtype auto \\\n        --gpu-memory-utilization 0.9 \\\n        --download-dir /workspace/models \\\n        --host 0.0.0.0 \\\n        --port 8000 \\\n        --served-model-name jan-v1-4b &\nelse\n    # Fallback to Python module\n    python -m vllm.entrypoints.openai.api_server \\\n        --model janhq/Jan-v1-4B \\\n        --max-model-len 2048 \\\n        --dtype auto \\\n        --gpu-memory-utilization 0.9 \\\n        --download-dir /workspace/models \\\n        --host 0.0.0.0 \\\n        --port 8000 \\\n        --served-model-name jan-v1-4b &\nfi\n\necho '✅ vLLM server started in background'\necho '⏳ Model loading... (this may take 2-3 minutes)'\necho '🌐 API will be available at http://<IP>:8000/v1'\n\n# Keep container running\ntail -f /dev/null",
+  "requirements": {
+    "gpu_count": 1,
+    "gpu_ram": 10,
+    "disk_space": 50,
+    "cuda_version": ">=12.0",
+    "recommended_gpus": [
+      "RTX 3090",
+      "RTX 4090", 
+      "RTX A5000",
+      "RTX 3080",
+      "RTX A4000",
+      "A100",
+      "V100"
+    ]
+  },
+  "api_endpoints": {
+    "base_url": "http://<instance_ip>:8000",
+    "openai_compatible": "http://<instance_ip>:8000/v1",
+    "models": "http://<instance_ip>:8000/v1/models",
+    "chat_completions": "http://<instance_ip>:8000/v1/chat/completions",
+    "completions": "http://<instance_ip>:8000/v1/completions",
+    "health": "http://<instance_ip>:8000/health",
+    "docs": "http://<instance_ip>:8000/docs"
+  }
+}

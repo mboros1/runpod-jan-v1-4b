@@ -1,0 +1,70 @@
+# Dockerfile for Jan-v1-4B on Vast.ai with vLLM
+FROM vllm/vllm-openai:latest
+
+# Set working directory
+WORKDIR /workspace
+
+# Environment variables for Jan-v1-4B
+ENV VLLM_MODEL="janhq/Jan-v1-4B" \
+    VLLM_ARGS="--max-model-len 2048 --dtype auto --gpu-memory-utilization 0.9 --download-dir /workspace/models --host 0.0.0.0 --port 8000 --tensor-parallel-size 1" \
+    MODEL="janhq/Jan-v1-4B" \
+    MAX_MODEL_LEN="2048" \
+    DTYPE="auto" \
+    GPU_MEMORY_UTILIZATION="0.9" \
+    HOST="0.0.0.0" \
+    PORT="8000" \
+    DOWNLOAD_DIR="/workspace/models" \
+    HF_HOME="/workspace/models" \
+    USE_ALL_GPUS="false"
+
+# Create model directory
+RUN mkdir -p /workspace/models
+
+# Pre-download the model (optional - speeds up startup but increases image size)
+# Uncomment if you want to bake the model into the image
+# RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('janhq/Jan-v1-4B', cache_dir='/workspace/models')"
+
+# Create a custom startup script
+RUN cat > /workspace/start-jan-vllm.sh << 'EOF'
+#!/bin/bash
+set -e
+
+echo "🚀 Starting vLLM with Jan-v1-4B model..."
+echo "Configuration:"
+echo "  - Model: ${VLLM_MODEL}"
+echo "  - Max tokens: ${MAX_MODEL_LEN}"
+echo "  - GPU utilization: ${GPU_MEMORY_UTILIZATION}"
+echo "  - Port: ${PORT}"
+
+# Check if model exists, download if needed
+if [ ! -d "/workspace/models/models--janhq--Jan-v1-4B" ]; then
+    echo "📥 Downloading Jan-v1-4B model..."
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('${VLLM_MODEL}', cache_dir='${DOWNLOAD_DIR}')"
+    echo "✅ Model downloaded successfully"
+fi
+
+# Start vLLM server
+echo "🌐 Starting vLLM API server..."
+exec python -m vllm.entrypoints.openai.api_server \
+    --model "${VLLM_MODEL}" \
+    --max-model-len ${MAX_MODEL_LEN} \
+    --dtype ${DTYPE} \
+    --gpu-memory-utilization ${GPU_MEMORY_UTILIZATION} \
+    --download-dir ${DOWNLOAD_DIR} \
+    --host ${HOST} \
+    --port ${PORT} \
+    --served-model-name "jan-v1-4b" \
+    --trust-remote-code
+EOF
+
+RUN chmod +x /workspace/start-jan-vllm.sh
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose the API port
+EXPOSE 8000
+
+# Default command
+CMD ["/workspace/start-jan-vllm.sh"]
