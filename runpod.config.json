@@ -1,0 +1,29 @@
+{
+  "template": {
+    "name": "jan-v1-4b-vllm-template",
+    "image": "runpod/worker-v1-vllm:v2.5.0stable-cuda12.1.0",
+    "containerDiskInGb": 10,
+    "ports": "8000/http",
+    "env": [
+      { "key": "MODEL_NAME", "value": "janhq/Jan-v1-4B" },
+      { "key": "MAX_MODEL_LEN", "value": "2048" },
+      { "key": "DTYPE", "value": "bfloat16" },
+      { "key": "GPU_MEMORY_UTILIZATION", "value": "0.9" },
+      { "key": "TEMPERATURE", "value": "0.6" },
+      { "key": "TOP_P", "value": "0.95" },
+      { "key": "TOP_K", "value": "20" },
+      { "key": "ENABLE_AUTO_TOOL_CHOICE", "value": "true" },
+      { "key": "TOOL_CALL_PARSER", "value": "hermes" }
+    ]
+  },
+  "endpoint": {
+    "name": "jan-v1-4b-endpoint-fb",
+    "gpuType": "RTX_A5000,RTX_A4500,RTX_3090,RTX_4000_Ada,A30,L4,RTX_4090",
+    "locations": "ANY",
+    "idleTimeout": 5,
+    "scalerType": "QUEUE_DELAY",
+    "scalerValue": 1,
+    "workersMin": 0,
+    "workersMax": 1
+  }
+}
